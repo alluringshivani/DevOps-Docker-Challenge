@@ -1,0 +1,81 @@
+- name: Orchestrate Python Code Deployment
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  become: yes 
+
+  tasks:
+    - name: Prompt user for username
+      pause:
+        prompt: "Enter the username for the new user: "
+      register: username_input
+
+    - name: Create a new user
+      user:
+        name: "{{ username_input.user_input }}"
+        state: present
+        shell: /bin/bash
+        createhome: yes
+
+    - name: Install Python and pip
+      become: yes
+      apt:
+        name:
+          - python3
+          - python3-pip
+        state: present
+
+    - name: Check if remote_tmp directory exists
+      stat:
+        path: "/home/{{ username_input.user_input }}/.ansible/tmp"
+      register: tmp_dir_status
+      become_user: "{{ username_input.user_input }}"
+
+    - name: Create remote_tmp directory
+      file:
+        path: "/home/{{ username_input.user_input }}/.ansible/tmp"
+        state: directory
+        mode: "0700"
+      when: tmp_dir_status.stat.exists == False
+      become_user: "{{ username_input.user_input }}"
+
+    - name: Install FastAPI and its dependencies
+      pip:
+        name:
+          - fastapi
+          - uvicorn
+      become_user: "{{ username_input.user_input }}"
+
+    - name: Limit ports to only allow Python code API ports and SSH
+      become: yes
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+      loop:
+        - '22'  # SSH port
+        - '8000'  # Replace with your Python code API port
+
+    - name: Copy Python code to host
+      copy:
+        src: "{{ item }}"
+        dest: "/home/{{ username_input.user_input }}/{{ item }}"
+      with_items:
+        - APIs.py
+        - main.py
+
+    - name: Run Python Script within the context of the newly created user
+      become: yes
+      become_user: "{{ username_input.user_input }}"
+      command: python3 /home/{{ username_input.user_input }}/APIs.py
+
+    # Task to stop the FastAPI server if it's running
+    - name: Stop FastAPI server if running
+      shell: "kill $(lsof -t -i:8000) || true"
+      ignore_errors: yes
+      become_user: "{{ username_input.user_input }}"
+
+    - name: Start FastAPI server
+      shell: nohup uvicorn main:app --host 0.0.0.0 --port 8000 >/dev/null 2>&1 &
+      become: yes
+      become_user: "{{ username_input.user_input }}"
+        

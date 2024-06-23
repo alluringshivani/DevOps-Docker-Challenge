@@ -1,0 +1,18 @@
+Build the Code
+
+To build the code and deploy the Python environment, execute the following command: This command will execute the Ansible playbook orchestrate.yml, which automates the deployment process. You will be prompted to enter the password for sudo privileges.
+
+make build
+
+
+Run the Server
+Once the code is built and deployed, you can run the FastAPI server using the following command: This command starts the FastAPI server, listening on host 0.0.0.0 and port 8000.
+
+make server
+
+Verify the Server
+To verify that the server is running correctly, you can use curl to make a GET request to the /hello endpoint: This command sends a GET request to the server running on localhost at port 8000 and expects a response from the /hello endpoint.
+
+make verify
+
+
